@@ -1,7 +1,5 @@
 from flask import Flask, jsonify, render_template_string
 import requests
-import schedule
-import threading
 import time
 
 app = Flask(__name__)
@@ -13,12 +11,13 @@ keywords = [
     #"亚马逊", "Amazon", "AMZN",
     #"微软", "Microsoft", "MSFT",
     #"台积电", "TSMC", "TSM",
-    #"博通", "Broadcom", "AVGO",
+    #", "Broadcom", "AVGO",
     #"苹果", "Apple", "AAPL"
 ]
 
-# GNews API Key
-GNEWS_API_KEY = '118ccae9bbb57ed0e4e5c9b7f807a3fb'
+# NewsAPI Key
+API_KEY_1 = '0f63de18589144069d67de385b814270'
+API_KEY_2 = '21f1adddc57e484095696916d314f0d5'
 
 # 按批次划分关键词
 keyword_batches = [keywords[i:i+3] for i in range(0, len(keywords), 3)]
@@ -37,6 +36,49 @@ stock_code_map = {
     #"台积电": "TSM",
     #"博通": "AVGO"
 }
+
+# 获取新闻数据（来自 NewsAPI）
+def get_latest_stock_news():
+    global latest_news, current_batch_index
+    latest_news = {}
+
+    batch = keyword_batches[current_batch_index]
+    current_batch_index = (current_batch_index + 1) % len(keyword_batches)
+
+    for keyword in batch:
+        url = f'https://newsapi.org/v2/everything?q={keyword}&apiKey={API_KEY_1}&language=zh'
+        try:
+            response = requests.get(url)
+            time.sleep(1)
+            if response.status_code == 200:
+                print(f"[{keyword}] 请求状态: {response.status_code}")
+                news = response.json()
+                print(f"[{keyword}] 返回数据: {news}")
+            else:
+                print(f"[{keyword}] 请求异常: {response.status_code}")
+                news = {}
+
+        except Exception as e:
+            print(f"[{keyword}] 请求异常: {e}")
+            news = {}
+
+        if news.get('articles'):
+            articles = news['articles'][:5]
+            for article in articles:
+                title = article.get('title', '无标题')
+                description = article.get('description', '无描述')
+                content = article.get('content', description or title)
+                url_to_image = article.get('urlToImage', 'https://example.com/default_image.jpg')  # 默认图片
+
+                # 如果文章没有图片，使用默认图片
+                if not url_to_image:
+                    url_to_image = 'https://example.com/default_image.jpg'
+
+                article['summary'] = summarize_with_glm(title, description, content)
+            latest_news[keyword] = articles
+        else:
+            print(f"[{keyword}] 暂无新闻信息或API请求失败。")
+            latest_news[keyword] = []
 
 # 使用智谱 GLM 总结文章
 def summarize_with_glm(title, description, content):
@@ -57,48 +99,6 @@ def summarize_with_glm(title, description, content):
         return resp.get("choices", [{}])[0].get("message", {}).get("content", "")
     except Exception as e:
         return f"总结失败：{e}"
-
-# 获取新闻数据（来自 GNews API）
-def get_latest_stock_news():
-    global latest_news, current_batch_index
-    latest_news = {}
-
-    batch = keyword_batches[current_batch_index]
-    current_batch_index = (current_batch_index + 1) % len(keyword_batches)
-
-    for keyword in batch:
-        url = f'https://gnews.io/api/v4/search?q={keyword}&lang=zh&max=5&token={GNEWS_API_KEY}'
-        try:
-            response = requests.get(url)
-            time.sleep(1)
-            print(f"[{keyword}] 请求状态: {response.status_code}")
-            news = response.json()
-            print(f"[{keyword}] 返回数据: {news}")
-        except Exception as e:
-            print(f"[{keyword}] 请求异常: {e}")
-            news = {}
-
-        if news.get('articles'):
-            articles = news['articles'][:5]
-            for article in articles:
-                title = article.get('title', '')
-                description = article.get('description', '')
-                content = article.get('content') or description or title
-                article['summary'] = summarize_with_glm(title, description, content)
-            latest_news[keyword] = articles
-        else:
-            print(f"[{keyword}] 暂无新闻信息或API请求失败。")
-            latest_news[keyword] = []
-
-# 每3小时执行一次
-schedule.every(3).hours.do(get_latest_stock_news)
-
-def run_scheduler():
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
-
-threading.Thread(target=run_scheduler, daemon=True).start()
 
 @app.route('/')
 def index():
@@ -143,9 +143,9 @@ def index():
         {% if keyword == main or keyword == stock_code_map[main] %}
           <div class="company-title">{{ keyword }}</div>
           {% if articles %}
-            {% for idx, article in enumerate(articles, start=1) %}
+            {% for index, article in enumerate(articles) %}
               <div class="card">
-                <h3>📰 {{ idx }}. {{ article['title'] }}</h3>
+                <h3>{{ index + 1 }}. 📰 {{ article['title'] }}</h3>
                 <p>📍 {{ article['source']['name'] }} | 🕒 {{ article['publishedAt'][:10] }}</p>
                 <p>💡 {{ article['summary'] }}</p>
                 <a href="{{ article['url'] }}" target="_blank">🔗 查看原文</a>
@@ -177,4 +177,4 @@ def index():
 if __name__ == '__main__':
     print("🚀 美股公司最新动态监控Web端已启动...")
     get_latest_stock_news()
-    app.run(debug=True, host='0.0.0.0', port=5002)
+    app.run(debug=True, host='0.0.0.0', port=5006)
