@@ -27,6 +27,17 @@ current_batch_index = 0
 # 新闻存储
 latest_news = {}
 
+# 股票代码映射（用于趋势图）
+stock_code_map = {
+    "英伟达": "NVDA",
+    "特斯拉": "TSLA",
+    "亚马逊": "AMZN",
+    "苹果": "AAPL",
+    "微软": "MSFT",
+    "台积电": "TSM",
+    "博通": "AVGO"
+}
+
 # 使用智谱 GLM 总结文章
 def summarize_with_glm(title, description, content):
     try:
@@ -93,89 +104,77 @@ threading.Thread(target=run_scheduler, daemon=True).start()
 def index():
     html = """
 <!DOCTYPE html>
-<html lang="zh">
+<html lang=\"zh\">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
   <title>🚀 美股公司最新动态</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background-color: #f4f4f4;
-      margin: 0;
-      padding: 1rem;
-    }
-    h1 {
-      text-align: center;
-      color: #222;
-      margin-bottom: 2rem;
-    }
-    .company-section {
-      margin-bottom: 2rem;
-    }
-    .company-title {
-      font-size: 1.2rem;
-      font-weight: bold;
-      color: #333;
-      border-left: 4px solid #2e90fa;
-      padding-left: 0.5rem;
-      margin-bottom: 1rem;
-    }
-    .card {
-      background-color: #fff;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
-    .card h3 {
-      margin: 0 0 0.3rem;
-      font-size: 1rem;
-      color: #222;
-    }
-    .card p {
-      margin: 0.3rem 0;
-      font-size: 0.95rem;
-      color: #444;
-    }
-    .card a {
-      color: #2e90fa;
-      text-decoration: none;
-      font-size: 0.9rem;
-    }
-    .no-data {
-      font-size: 0.95rem;
-      color: #888;
-      margin-left: 0.5rem;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background-color: #f4f4f4; margin: 0; padding: 1rem; }
+    h1 { text-align: center; color: #222; margin-bottom: 2rem; }
+    .tabs { display: flex; flex-wrap: wrap; justify-content: center; margin-bottom: 1rem; }
+    .tab { padding: 0.5rem 1rem; margin: 0.2rem; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; font-weight: bold; }
+    .tab.active { background-color: #2e90fa; color: #fff; }
+    .company-section { display: none; }
+    .company-section.active { display: block; }
+    .company-title { font-size: 1.2rem; font-weight: bold; color: #333; border-left: 4px solid #2e90fa; padding-left: 0.5rem; margin-bottom: 1rem; }
+    .card { background-color: #fff; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); padding: 1rem; margin-bottom: 1rem; }
+    .card h3 { margin: 0 0 0.3rem; font-size: 1rem; color: #222; }
+    .card p { margin: 0.3rem 0; font-size: 0.95rem; color: #444; }
+    .card a { color: #2e90fa; text-decoration: none; font-size: 0.9rem; }
+    .no-data { font-size: 0.95rem; color: #888; margin-left: 0.5rem; }
+    .trend { text-align: center; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
   <h1>🚀 美股公司最新动态</h1>
-  {% for keyword, articles in news.items() %}
-    <div class="company-section">
-      <div class="company-title">{{ keyword }}</div>
-      {% if articles %}
-        {% for article in articles %}
-          <div class="card">
-            <h3>📰 {{ article['title'] }}</h3>
-            <p>📍 {{ article['source']['name'] }} | 🕒 {{ article['publishedAt'][:10] }}</p>
-            <p>💡 {{ article['summary'] }}</p>
-            <a href="{{ article['url'] }}" target="_blank">🔗 查看原文</a>
-          </div>
-        {% endfor %}
-      {% else %}
-        <p class="no-data">暂无新闻信息或API请求失败。</p>
-      {% endif %}
+  <div class="tabs">
+    {% for main in ['英伟达','特斯拉','亚马逊','苹果','微软','台积电','博通'] %}
+      <div class="tab" onclick="switchTab('{{ main }}')">{{ main }}</div>
+    {% endfor %}
+  </div>
+
+  {% for main in ['英伟达','特斯拉','亚马逊','苹果','微软','台积电','博通'] %}
+    <div id="tab-{{ main }}" class="company-section">
+      <div class="trend">
+        <img src="https://chart.finance.yahoo.com/z?s={{ stock_code_map[main] }}&t=1d&q=l&l=on&z=s&p=m50" width="320" alt="{{ main }}趋势图">
+      </div>
+      {% for keyword, articles in news.items() %}
+        {% if keyword == main or keyword == stock_code_map[main] %}
+          <div class="company-title">{{ keyword }}</div>
+          {% if articles %}
+            {% for article in articles %}
+              <div class="card">
+                <h3>📰 {{ article['title'] }}</h3>
+                <p>📍 {{ article['source']['name'] }} | 🕒 {{ article['publishedAt'][:10] }}</p>
+                <p>💡 {{ article['summary'] }}</p>
+                <a href="{{ article['url'] }}" target="_blank">🔗 查看原文</a>
+              </div>
+            {% endfor %}
+          {% else %}
+            <p class="no-data">暂无新闻信息或API请求失败。</p>
+          {% endif %}
+        {% endif %}
+      {% endfor %}
     </div>
   {% endfor %}
+
+  <script>
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.company-section').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(t => { if(t.innerText === name) t.classList.add('active'); });
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+    // 默认激活第一个
+    switchTab('英伟达');
+  </script>
 </body>
 </html>
 """
-
-    return render_template_string(html, news=latest_news)
+    return render_template_string(html, news=latest_news, stock_code_map=stock_code_map)
 
 if __name__ == '__main__':
     print("🚀 美股公司最新动态监控Web端已启动...")
     get_latest_stock_news()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5050)
