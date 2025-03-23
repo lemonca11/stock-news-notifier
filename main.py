@@ -92,44 +92,87 @@ threading.Thread(target=run_scheduler, daemon=True).start()
 @app.route('/')
 def index():
     html = """
-    <!DOCTYPE html>
-    <html lang=\"zh\">
-    <head>
-        <meta charset=\"UTF-8\">
-        <title>美股公司最新动态</title>
-        <style>
-            body { font-family: Arial; padding: 20px; background: #f4f4f4; }
-            h1 { color: #333; }
-            h2 { color: #555; border-left: 5px solid #3399ff; padding-left: 10px; }
-            ul { padding-left: 20px; }
-            li { margin-bottom: 15px; background: #fff; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-            a { color: #0077cc; text-decoration: none; }
-        </style>
-    </head>
-    <body>
-        <h1>🚀 美股公司最新动态</h1>
-        {% for keyword, articles in news.items() %}
-            <h2>{{ keyword }}</h2>
-            {% if articles %}
-                <ul>
-                    {% for article in articles %}
-                        <li>
-                            <strong>标题：</strong>{{ article['title'] }}<br>
-                            <strong>描述：</strong>{{ article['description'] }}<br>
-                            <strong>来源：</strong>{{ article['source']['name'] }}<br>
-                            <strong>链接：</strong><a href="{{ article['url'] }}" target="_blank">点击查看</a><br>
-                            <strong>发布时间：</strong>{{ article['publishedAt'] }}<br>
-                            <strong>总结：</strong>{{ article['summary'] }}<br><br>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <p>暂无新闻信息或API请求失败。</p>
-            {% endif %}
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>🚀 美股公司最新动态</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 1rem;
+    }
+    h1 {
+      text-align: center;
+      color: #222;
+      margin-bottom: 2rem;
+    }
+    .company-section {
+      margin-bottom: 2rem;
+    }
+    .company-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #333;
+      border-left: 4px solid #2e90fa;
+      padding-left: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .card {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .card h3 {
+      margin: 0 0 0.3rem;
+      font-size: 1rem;
+      color: #222;
+    }
+    .card p {
+      margin: 0.3rem 0;
+      font-size: 0.95rem;
+      color: #444;
+    }
+    .card a {
+      color: #2e90fa;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    .no-data {
+      font-size: 0.95rem;
+      color: #888;
+      margin-left: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 美股公司最新动态</h1>
+  {% for keyword, articles in news.items() %}
+    <div class="company-section">
+      <div class="company-title">{{ keyword }}</div>
+      {% if articles %}
+        {% for article in articles %}
+          <div class="card">
+            <h3>📰 {{ article['title'] }}</h3>
+            <p>📍 {{ article['source']['name'] }} | 🕒 {{ article['publishedAt'][:10] }}</p>
+            <p>💡 {{ article['summary'] }}</p>
+            <a href="{{ article['url'] }}" target="_blank">🔗 查看原文</a>
+          </div>
         {% endfor %}
-    </body>
-    </html>
-    """
+      {% else %}
+        <p class="no-data">暂无新闻信息或API请求失败。</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</body>
+</html>
+"""
+
     return render_template_string(html, news=latest_news)
 
 if __name__ == '__main__':
